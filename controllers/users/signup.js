@@ -1,7 +1,8 @@
 const { Conflict } = require('http-errors')
 const gravatar = require('gravatar')
+const { nanoid } = require('nanoid')
+const { sendEmail } = require('../../helpers')
 const { User } = require('../../models')
-// const bcrypt = require('bcryptjs')
 
 const signup = async (req, res) => {
   const { password, email, subscription } = req.body
@@ -9,12 +10,17 @@ const signup = async (req, res) => {
   if (user) {
     throw new Conflict(`User with ${email} already exists`)
   }
+  const verificationToken = nanoid()
   const avatarURL = gravatar.url(email)
-  const newUser = new User({ email, avatarURL })
+  const newUser = new User({ email, avatarURL, verificationToken })
   newUser.setPassword(password)
-  newUser.save()
-  //   const hashPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10))
-  //   const result = await User.create({ password: hashPassword, email, subscription })
+  await newUser.save()
+  const mail = {
+    to: email,
+    subject: 'Email conformation',
+    html: `<a target = '_blank' href = 'http://localhost:300/api/users/verify/${verificationToken}'>Confirm email</a>`
+  }
+  await sendEmail(mail)
   res.status(201).json({
     status: 'success',
     code: 201,
@@ -22,7 +28,8 @@ const signup = async (req, res) => {
       user: {
         email,
         password,
-        avatarURL
+        avatarURL,
+        verificationToken
       }
     }
   })
